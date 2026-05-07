@@ -1,0 +1,43 @@
+﻿version: '3.8'
+
+networks:
+  pqnet:
+    name: pq-tls-demo_pqnet
+
+services:
+
+  server-classical:
+    image: openquantumsafe/nginx
+    container_name: pq-server-classical
+    command: nginx -c /etc/nginx/nginx.conf -g 'daemon off;'
+    volumes:
+      - ./certs/classical:/certs:ro
+      - ./nginx-conf/nginx-classical.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "4430:4430"
+    networks:
+      - pqnet
+
+  server-pq:
+    image: openquantumsafe/nginx
+    container_name: pq-server-pq
+    command: nginx -c /etc/nginx/nginx.conf -g 'daemon off;'
+    volumes:
+      - ./certs/pq:/certs:ro
+      - ./nginx-conf/nginx-pq.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "4431:4431"
+    networks:
+      - pqnet
+
+  server-hybrid:
+    image: openquantumsafe/nginx
+    container_name: pq-server-hybrid
+    command: nginx -c /etc/nginx/nginx.conf -g 'daemon off;'
+    volumes:
+      - ./certs/hybrid:/certs:ro
+      - ./nginx-conf/nginx-hybrid.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "4432:4432"
+    networks:
+      - pqnet

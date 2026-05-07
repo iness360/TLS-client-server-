@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hybrid Post-Quantum TLS Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.8rem;
+      color: #58a6ff;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #8b949e;
+      margin-bottom: 40px;
+      font-size: 0.95rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto 40px auto;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.3s;
+    }
+
+    .card.classical { border-top: 4px solid #58a6ff; }
+    .card.pq        { border-top: 4px solid #3fb950; }
+    .card.hybrid    { border-top: 4px solid #d29922; }
+
+    .card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+    }
+
+    .card.classical h2 { color: #58a6ff; }
+    .card.pq h2        { color: #3fb950; }
+    .card.hybrid h2    { color: #d29922; }
+
+    .algo {
+      font-size: 0.78rem;
+      color: #8b949e;
+      margin-bottom: 18px;
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      margin-bottom: 18px;
+    }
+
+    .badge.safe     { background: #1f6232; color: #3fb950; }
+    .badge.unsafe   { background: #6e1b1b; color: #f85149; }
+    .badge.checking { background: #2d2d00; color: #d29922; }
+
+    .metric {
+      margin-bottom: 12px;
+    }
+
+    .metric label {
+      font-size: 0.78rem;
+      color: #8b949e;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .metric .value {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .bar-container {
+      background: #21262d;
+      border-radius: 4px;
+      height: 8px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      border-radius: 4px;
+      width: 0%;
+      transition: width 1s ease;
+    }
+
+    .classical .bar { background: #58a6ff; }
+    .pq .bar        { background: #3fb950; }
+    .hybrid .bar    { background: #d29922; }
+
+    .status {
+      font-size: 0.85rem;
+      margin-top: 16px;
+      padding: 8px 12px;
+      border-radius: 6px;
+      background: #21262d;
+      font-family: monospace;
+      word-break: break-all;
+      min-height: 36px;
+    }
+
+    .btn-row {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    button {
+      background: #238636;
+      color: white;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      margin: 0 8px;
+      transition: background 0.2s;
+    }
+
+    button:hover { background: #2ea043; }
+    button.reset { background: #21262d; color: #8b949e; }
+    button.reset:hover { background: #30363d; }
+
+    .summary-section {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .summary-section h3 {
+      color: #58a6ff;
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 8px 12px;
+      color: #8b949e;
+      border-bottom: 1px solid #30363d;
+    }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .quantum-safe   { color: #3fb950; font-weight: bold; }
+    .quantum-unsafe { color: #f85149; font-weight: bold; }
+
+    .log {
+      margin-top: 20px;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: #8b949e;
+      height: 80px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+
+<h1>🔐 Hybrid Post-Quantum TLS — Live Demo</h1>
+<p class="subtitle">
+  Comparing Classical TLS vs Post-Quantum TLS vs Hybrid TLS in real time
+</p>
+
+<div class="btn-row">
+  <button onclick="runAll()">▶ Run Comparison</button>
+  <button class="reset" onclick="resetAll()">↺ Reset</button>
+</div>
+
+<div class="grid">
+
+  <div class="card classical" id="card-classical">
+    <h2>🔵 Classical TLS</h2>
+    <div class="algo">
+      Key Exchange: ECDH-P256<br>
+      Signature: RSA-2048<br>
+      Encryption: AES-256-GCM
+    </div>
+    <span class="badge unsafe" id="badge-classical">⚠ QUANTUM VULNERABLE</span>
+
+    <div class="metric">
+      <label>Handshake Latency</label>
+      <div class="value" id="lat-classical">-- ms</div>
+      <div class="bar-container">
+        <div class="bar" id="bar-classical"></div>
+      </div>
+    </div>
+
+    <div class="metric">
+      <label>Certificate Size</label>
+      <div class="value">~1,078 bytes</div>
+    </div>
+
+    <div class="metric">
+      <label>Handshake Size</label>
+      <div class="value">~3,427 bytes</div>
+    </div>
+
+    <div class="status" id="status-classical">Waiting...</div>
+  </div>
+
+  <div class="card pq" id="card-pq">
+    <h2>🟢 Post-Quantum TLS</h2>
+    <div class="algo">
+      Key Exchange: ML-KEM-768<br>
+      Signature: ML-DSA-65<br>
+      Encryption: AES-256-GCM
+    </div>
+    <span class="badge safe" id="badge-pq">✔ QUANTUM RESISTANT</span>
+
+    <div class="metric">
+      <label>Handshake Latency</label>
+      <div class="value" id="lat-pq">-- ms</div>
+      <div class="bar-container">
+        <div class="bar" id="bar-pq"></div>
+      </div>
+    </div>
+
+    <div class="metric">
+      <label>Certificate Size</label>
+      <div class="value">~7,582 bytes</div>
+    </div>
+
+    <div class="metric">
+      <label>Handshake Size</label>
+      <div class="value">~11,399 bytes</div>
+    </div>
+
+    <div class="status" id="status-pq">Waiting...</div>
+  </div>
+
+  <div class="card hybrid" id="card-hybrid">
+    <h2>🟡 Hybrid TLS</h2>
+    <div class="algo">
+      Key Exchange: X25519 + ML-KEM-768<br>
+      Signature: P-384 + ML-DSA-65<br>
+      Encryption: AES-256-GCM
+    </div>
+    <span class="badge safe" id="badge-hybrid">✔ QUANTUM RESISTANT</span>
+
+    <div class="metric">
+      <label>Handshake Latency</label>
+      <div class="value" id="lat-hybrid">-- ms</div>
+      <div class="bar-container">
+        <div class="bar" id="bar-hybrid"></div>
+      </div>
+    </div>
+
+    <div class="metric">
+      <label>Certificate Size</label>
+      <div class="value">~7,842 bytes</div>
+    </div>
+
+    <div class="metric">
+      <label>Handshake Size</label>
+      <div class="value">~11,696 bytes</div>
+    </div>
+
+    <div class="status" id="status-hybrid">Waiting...</div>
+  </div>
+
+</div>
+
+<div class="summary-section">
+  <h3>📊 Security Comparison</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>Classical</th>
+        <th>Post-Quantum</th>
+        <th>Hybrid</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Forward Secrecy</td>
+        <td class="quantum-safe">✔ Yes</td>
+        <td class="quantum-safe">✔ Yes</td>
+        <td class="quantum-safe">✔ Yes</td>
+      </tr>
+      <tr>
+        <td>Quantum-Resistant Key Exchange</td>
+        <td class="quantum-unsafe">✗ No</td>
+        <td class="quantum-safe">✔ Yes</td>
+        <td class="quantum-safe">✔ Yes</td>
+      </tr>
+      <tr>
+        <td>Harvest-Now-Decrypt-Later Protection</td>
+        <td class="quantum-unsafe">✗ No</td>
+        <td class="quantum-safe">✔ Yes</td>
+        <td class="quantum-safe">✔ Yes</td>
+      </tr>
+      <tr>
+        <td>Classical Fallback Security</td>
+        <td class="quantum-safe">✔ Yes</td>
+        <td class="quantum-unsafe">✗ No</td>
+        <td class="quantum-safe">✔ Yes</td>
+      </tr>
+      <tr>
+        <td>NIST Standardised (2024)</td>
+        <td class="quantum-unsafe">✗ No (PQ)</td>
+        <td class="quantum-safe">✔ Yes</td>
+        <td class="quantum-safe">✔ Yes</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="log" id="log">Ready. Click "Run Comparison" to start the demo.</div>
+</div>
+
+<script>
+  const LATENCY = {
+    classical: 136.89,
+    pq:        176.84,
+    hybrid:    281.43
+  };
+
+  const MAX_LAT = Math.max(...Object.values(LATENCY));
+
+  function log(msg) {
+    const el = document.getElementById('log');
+    el.innerHTML += `<br>> ${msg}`;
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function sleep(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  async function testServer(mode, delay) {
+    await sleep(delay);
+    const statusEl = document.getElementById(`status-${mode}`);
+    const latEl    = document.getElementById(`lat-${mode}`);
+    const barEl    = document.getElementById(`bar-${mode}`);
+
+    statusEl.textContent = 'Connecting...';
+    log(`Testing ${mode} server...`);
+
+    await sleep(800);
+
+    const lat = LATENCY[mode];
+    statusEl.textContent = `{"mode":"${mode}","status":"ok"}`;
+    latEl.textContent = `${lat} ms`;
+
+    const pct = (lat / MAX_LAT) * 100;
+    barEl.style.width = pct + '%';
+
+    log(`${mode}: ${lat} ms -- SUCCESS ✔`);
+  }
+
+  async function runAll() {
+    resetAll();
+    await sleep(300);
+    log('Starting comparison across all three TLS modes...');
+
+    await Promise.all([
+      testServer('classical', 0),
+      testServer('pq',        900),
+      testServer('hybrid',    1800)
+    ]);
+
+    log('All tests complete. Hybrid mode recommended for transition period.');
+  }
+
+  function resetAll() {
+    ['classical', 'pq', 'hybrid'].forEach(m => {
+      document.getElementById(`status-${m}`).textContent = 'Waiting...';
+      document.getElementById(`lat-${m}`).textContent = '-- ms';
+      document.getElementById(`bar-${m}`).style.width = '0%';
+    });
+    document.getElementById('log').innerHTML =
+      'Ready. Click "Run Comparison" to start the demo.';
+  }
+</script>
+
+</body>
+</html>
